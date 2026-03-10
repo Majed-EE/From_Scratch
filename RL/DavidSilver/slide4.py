@@ -7,8 +7,8 @@ states=7
 action=2
 
 alpha=0.05
-gamma=0.1
-
+gamma_mc=0.99
+gamma_td=0.1
 
 state_val_mc_ev=np.zeros(states) # every visit
 state_val_mc_fv=np.zeros(states) # first visit
@@ -25,7 +25,7 @@ reward_Ra_s_sd[5][1]=1
 
 print("done")
 
-t_episode=100
+t_episode=1000
 action_hist=[]
 state_hist=[]
 reward_hist=[]
@@ -60,7 +60,7 @@ for episode in range(t_episode):
         # print(f"length {len(state_visit_hist)}")
         if crnt_state in termination_state: # terminating state
             # TD(0) 
-            state_val_td[crnt_state]=state_val_td[crnt_state]+alpha*(R_t_plus_1+gamma*state_val_td[next_state]-state_val_td[crnt_state])
+            state_val_td[crnt_state]=state_val_td[crnt_state]+alpha*(R_t_plus_1+gamma_td*state_val_td[next_state]-state_val_td[crnt_state])
             
             break
 
@@ -74,7 +74,7 @@ for episode in range(t_episode):
         R_t_plus_1 = reward_Ra_s_sd[crnt_state][sample] 
         episode_reward.append(R_t_plus_1)
         # TD(0) update
-        state_val_td[crnt_state]=state_val_td[crnt_state]+alpha*(R_t_plus_1+gamma*state_val_td[next_state]-state_val_td[crnt_state])
+        state_val_td[crnt_state]=state_val_td[crnt_state]+alpha*(R_t_plus_1+gamma_td*state_val_td[next_state]-state_val_td[crnt_state])
         # transition happen at the end of the loop
         step_t+=1
 
@@ -104,7 +104,7 @@ for episode in range(t_episode):
             t_crnt=0
             # reward for first visit
             for itr in range(start_t+1,len(episode_reward)):
-                gt_fv+=episode_reward[itr]*gamma**(t_crnt)
+                gt_fv+=episode_reward[itr]*gamma_mc**(t_crnt)
                 t_crnt+=1
             
             ##### for every visit ####
@@ -114,7 +114,7 @@ for episode in range(t_episode):
                 start_t = state_visit_hist[state][crnt_visit]
                 t_crnt=0
                 for itr in range(start_t+1,len(episode_reward)):
-                    gt_ev+=episode_reward[itr]*gamma**(t_crnt)
+                    gt_ev+=episode_reward[itr]*gamma_mc**(t_crnt)
                     t_crnt+=1
         # update S_s
         S_s_ev[state]+=gt_ev
