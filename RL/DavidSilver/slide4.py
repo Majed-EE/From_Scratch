@@ -7,7 +7,7 @@ states=7
 action=2
 
 alpha=0.05
-gamma=0.4
+gamma=0.1
 
 
 state_val_mc_ev=np.zeros(states) # every visit
@@ -25,41 +25,46 @@ reward_Ra_s_sd[5][1]=1
 
 print("done")
 
-t_episode=10000
+t_episode=100
 action_hist=[]
 state_hist=[]
 reward_hist=[]
 episode_state_val_td=[]
 episode_state_val_mc_fv=[]
 episode_state_val_mc_ev=[]
+# big Dhammak S_s
+S_s_fv=np.zeros(states)
+S_s_ev=np.zeros(states)
 # rms td vs MC
 rms_td= np.zeros((t_episode,states))
 rms_mc_fv = np.zeros((t_episode,states))
 rms_mc_ev=np.zeros((t_episode,states))
-true_val=np.linspace(0,1,7)
+true_val=np.linspace(0,1,states)
+
 
 for episode in range(t_episode):
     # t_action=0
     start_state = 3
     episode_state=[start_state]
     episode_action = []
-    episode_reward = []
+    episode_reward = [0]
     e_visit=np.zeros(states) # episode visit
-    
-     # c in the figure 
-    # R_t_plus_1=0.0
+    state_visit_hist=list([] for _ in range(states))
     next_state = start_state
-    
-    terminal_State=[0,6]
+    termination_state=[0,6]
+    step_t=0
+    # print(state)
     while True:
-        
         crnt_state=next_state
-        if crnt_state in terminal_State:
-            # print(f"breaking in terminal state {crnt_state}")
-            # terminating state
+        state_visit_hist[crnt_state].append(step_t)
+        # print(f"length {len(state_visit_hist)}")
+        if crnt_state in termination_state: # terminating state
+            # TD(0) 
+            state_val_td[crnt_state]=state_val_td[crnt_state]+alpha*(R_t_plus_1+gamma*state_val_td[next_state]-state_val_td[crnt_state])
+            
             break
 
-        e_visit[crnt_state]+=1
+        # e_visit[crnt_state]+=1
         
         sample = np.random.binomial(n=1,p=0.5)
         action = 1 if sample==1 else -1
@@ -71,24 +76,58 @@ for episode in range(t_episode):
         # TD(0) update
         state_val_td[crnt_state]=state_val_td[crnt_state]+alpha*(R_t_plus_1+gamma*state_val_td[next_state]-state_val_td[crnt_state])
         # transition happen at the end of the loop
+        step_t+=1
+
+    # print(f"Episode {episode} summary: ")
+    # print(f"State transition history {episode_state}")
+    # print(f"Reward history: {episode_reward}")
+    # print(f"Action history: {episode_action}")
+    # print(f"length state hist {len(state_visit_hist)}")
+
+
+
 
     # MC update
-    # gt for every termination        
-    gt=0
-    for t in range(len(episode_reward)):
-        gt+=(gamma**(t))*episode_reward[t]
-    for state in range(0,states):
-        # what is S(s)-> incremental total return is what?
-        # every visit
-        S_s_ev=state_val_mc_ev[state]*count_mc_ev[state]
-        S_s_fv=state_val_mc_fv[state]*count_mc_fv[state]
-        count_mc_ev[state]+=e_visit[state]  # N(s)<-N(s)+1 for every visit
-        if count_mc_ev[state]!=0: state_val_mc_ev[state]= ((S_s_ev+gt)/count_mc_ev[state])
+    # gt for every episode termination    
+     
+    gt_s_ev = np.zeros(states)
+    
+    for state in range(1,states-1):# not including terminating states for MC
         # first visit
-        if e_visit[state]>0: 
-            count_mc_fv[state]+=1 
-        if count_mc_ev[state]!=0:state_val_mc_fv[state] = ((S_s_fv+gt)/count_mc_fv[state])
+        gt_fv=0
+        gt_ev=0
+        # print(f"length state hist {len(state_visit_hist)}")
+        if (len(state_visit_hist[state])>0): 
+            # state visited for the first time at time t
+            count_mc_fv[state]+=1 # state visited for the first time
+            start_t=state_visit_hist[state][0] # first visit
+            t_crnt=0
+            # reward for first visit
+            for itr in range(start_t+1,len(episode_reward)):
+                gt_fv+=episode_reward[itr]*gamma**(t_crnt)
+                t_crnt+=1
+            
+            ##### for every visit ####
+            for crnt_visit in range(len(state_visit_hist[state])): # every time state is visited
+                
+                count_mc_ev[state]+=1
+                start_t = state_visit_hist[state][crnt_visit]
+                t_crnt=0
+                for itr in range(start_t+1,len(episode_reward)):
+                    gt_ev+=episode_reward[itr]*gamma**(t_crnt)
+                    t_crnt+=1
+        # update S_s
+        S_s_ev[state]+=gt_ev
+        S_s_fv[state]+=gt_fv 
 
+        
+        
+        # update value function estimate
+        if count_mc_fv[state]!=0:state_val_mc_fv[state] = (S_s_fv[state])/count_mc_fv[state]
+        if count_mc_ev[state]!=0:state_val_mc_ev[state] = (S_s_ev[state])/count_mc_ev[state]
+
+        
+    
         # incremental mean MC
     episode_state_val_td.append(state_val_td)
     episode_state_val_mc_ev.append(state_val_mc_ev)
@@ -98,10 +137,7 @@ for episode in range(t_episode):
     rms_td[episode] = np.sqrt(np.mean(true_val- state_val_td)**2)
     rms_mc_fv[episode] = np.sqrt(np.mean(true_val- state_val_mc_fv)**2)
     rms_mc_ev[episode] = np.sqrt(np.mean(true_val- state_val_mc_ev)**2)
-    # print(f"Episode {episode} summary: ")
-    # print(f"State transition history {episode_state}")
-    # print(f"Reward history: {episode_reward}")
-    # print(f"Action history: {episode_action}")
+
     reward_hist.append(episode_reward)
     state_hist.append(episode_state)
     action_hist.append(episode_action)
@@ -121,7 +157,7 @@ mean_rms_td = np.mean(rms_td, axis=1)
 mean_rms_mc_fv = np.mean(rms_mc_fv, axis=1)
 mean_rms_mc_ev = np.mean(rms_mc_ev, axis=1)
 
-plt.plot(mean_rms_td, label='TD(0)', color='blue')
+plt.plot(mean_rms_td[1:-1], label='TD(0)', color='blue')
 plt.plot(mean_rms_mc_fv[1:-1], label='MC First Visit', color='green')
 plt.plot(mean_rms_mc_ev[1:-1], label='MC Every Visit', color='red')
 
