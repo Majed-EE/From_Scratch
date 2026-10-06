@@ -3,7 +3,7 @@ total_samples=100
 rent_mean_a=4
 rent_mean_b=5
 ret_mean_a=3
-ret_mean_b=2 
+ret_mean_b=2 3  
 max_car = 20
 sample_ret_a=np.random.poisson(lam=ret_mean_a,samples=total_samples)
 sample_ret_b=np.random.poisson(lam=ret_mean_b,samples=total_samples)

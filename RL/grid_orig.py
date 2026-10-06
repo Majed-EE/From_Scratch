@@ -7,7 +7,6 @@ import time
 import pickle
 import os
 from gym.envs.classic_control import rendering
-import matplotlib.pyplot as plt
 
 CELL_SIZE = 100
 MARGIN = 10
@@ -47,17 +46,13 @@ def draw_object(coords_list):
 
 
 class GridWorldEnv(discrete.DiscreteEnv):
-    def __init__(self, num_rows=4, num_cols=6, delay=0.05, col_air=[0, 0, 0, 1, 1, 1, 2, 2, 1, 0]):
+    def __init__(self, num_rows=4, num_cols=6, delay=0.05,col_air=[0,0,0,1,1,1,2,2,1,0]):
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.col_air = col_air
 
         self.delay = delay
 
-        self.path = []  # To store the agent's path
-        self.image_save_path = "agent_paths"  # Directory to save images
-        if not os.path.exists(self.image_save_path):
-            os.makedirs(self.image_save_path)
 
         move_down = lambda row, col: (min(max(row - 1 +self.col_air[col], 0), num_rows-1), col)
         move_up = lambda row, col: (min( max(row + 1+self.col_air[col] ,0 ), num_rows - 1), col)
@@ -189,25 +184,6 @@ class GridWorldEnv(discrete.DiscreteEnv):
         for obj in all_objects:
             self.viewer.add_geom(obj)
 
-    def save_path_image(self, step):
-        """Save the current path as an image."""
-        fig, ax = plt.subplots(figsize=(self.num_cols, self.num_rows))
-        ax.set_xlim(0, self.num_cols)
-        ax.set_ylim(0, self.num_rows)
-        ax.set_xticks(range(self.num_cols + 1))
-        ax.set_yticks(range(self.num_rows + 1))
-        ax.grid(True)
-
-        # Draw the path
-        if self.path:
-            path_x, path_y = zip(*self.path)
-            ax.plot(path_x, path_y, marker="o", color="blue", label="Path")
-
-        # Save the image
-        image_file = os.path.join(self.image_save_path, f"step_{step}.png")
-        plt.savefig(image_file)
-        plt.close(fig)
-
     def render(self, mode='human', done=False):
         if done:
             sleep_time = 1
@@ -215,12 +191,13 @@ class GridWorldEnv(discrete.DiscreteEnv):
             sleep_time = self.delay
         x_coord = self.s % self.num_cols
         y_coord = self.s // self.num_cols
-        self.path.append((x_coord + 0.5, y_coord + 0.5))  # Append the agent's position
-
-        # Save the path image at each step
-        self.save_path_image(len(self.path))
-
-        # return rend
+        x_coord = (x_coord + 0) * CELL_SIZE
+        y_coord = (y_coord + 0) * CELL_SIZE
+        self.agent_trans.set_translation(x_coord, y_coord)
+        rend = self.viewer.render(
+            return_rgb_array=(mode == 'rgb_array'))
+        time.sleep(sleep_time)
+        return rend
 
     def close(self):
         if self.viewer:

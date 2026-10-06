@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-
+# TODO MC incremental mean
+# TODO TD(lambda)
+    # TODO forward view
+    # TODO backward view
 states=7
 action=2
 
@@ -78,11 +80,11 @@ for episode in range(t_episode):
         # transition happen at the end of the loop
         step_t+=1
 
-    # print(f"Episode {episode} summary: ")
-    # print(f"State transition history {episode_state}")
-    # print(f"Reward history: {episode_reward}")
-    # print(f"Action history: {episode_action}")
-    # print(f"length state hist {len(state_visit_hist)}")
+    print(f"Episode {episode} summary: ")
+    print(f"State transition history {episode_state}")
+    print(f"Reward history: {episode_reward}")
+    print(f"Action history: {episode_action}")
+    print(f"length state hist {len(state_visit_hist)}")
 
 
 

@@ -8,7 +8,6 @@ import pickle
 import os
 from gym.envs.classic_control import rendering
 import matplotlib.pyplot as plt
-
 CELL_SIZE = 100
 MARGIN = 10
 
@@ -47,15 +46,13 @@ def draw_object(coords_list):
 
 
 class GridWorldEnv(discrete.DiscreteEnv):
-    def __init__(self, num_rows=4, num_cols=6, delay=0.05, col_air=[0, 0, 0, 1, 1, 1, 2, 2, 1, 0]):
+    def __init__(self, num_rows=4, num_cols=6, delay=0.05,col_air=[0,0,0,1,1,1,2,2,1,0]):
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.col_air = col_air
-
         self.delay = delay
-
-        self.path = []  # To store the agent's path
-        self.image_save_path = "agent_paths"  # Directory to save images
+        self.path = [] # agent path
+        self.image_save_path = "agent_paths" 
         if not os.path.exists(self.image_save_path):
             os.makedirs(self.image_save_path)
 
@@ -75,14 +72,13 @@ class GridWorldEnv(discrete.DiscreteEnv):
         self.state2grid_dict = {s: (s // num_cols, s % num_cols)
                                 for s in range(nS)}
 
+
         # Gold state
         gold_cell = (3,7)
 
-        # Trap states
+        # Trap states 
         trap_cells =[]
-        # trap_cells = [((gold_cell[0] + 1), gold_cell[1]),
-        #               (gold_cell[0], gold_cell[1] - 1),
-        #               ((gold_cell[0] - 1), gold_cell[1])]
+
 
         gold_state = self.grid2state_dict[gold_cell]
         trap_states = [] 
@@ -98,15 +94,15 @@ class GridWorldEnv(discrete.DiscreteEnv):
             P[s] = defaultdict(list)
             for a in range(nA):
                 action = self.action_defs[a]
-                print(f"state: {s} (row= {row},col= {col}) and action: {a} ")
+                # print(f"state: {s} (row= {row},col= {col}) and action: {a} ")
                 next_s = self.grid2state_dict[action(row, col)]
 
                 # Terminal state
                 if self.is_terminal(next_s):
-                    r = (1.0 if next_s == self.terminal_states[0] # goal state
-                         else -1.0)
+                    r = (2.0 if next_s == self.terminal_states[0] # goal state
+                         else -2.0)
                 else:
-                    r = 0.0
+                    r = -1.0 # -1 for each step
                 if self.is_terminal(s):
                     done = True
                     next_s = s
@@ -189,6 +185,8 @@ class GridWorldEnv(discrete.DiscreteEnv):
         for obj in all_objects:
             self.viewer.add_geom(obj)
 
+
+
     def save_path_image(self, step):
         """Save the current path as an image."""
         fig, ax = plt.subplots(figsize=(self.num_cols, self.num_rows))
@@ -208,6 +206,8 @@ class GridWorldEnv(discrete.DiscreteEnv):
         plt.savefig(image_file)
         plt.close(fig)
 
+
+
     def render(self, mode='human', done=False):
         if done:
             sleep_time = 1
@@ -215,12 +215,18 @@ class GridWorldEnv(discrete.DiscreteEnv):
             sleep_time = self.delay
         x_coord = self.s % self.num_cols
         y_coord = self.s // self.num_cols
+        x_coord = (x_coord + 0) * CELL_SIZE
+        y_coord = (y_coord + 0) * CELL_SIZE
+        self.agent_trans.set_translation(x_coord, y_coord)
+        rend = self.viewer.render(
+            return_rgb_array=(mode == 'rgb_array'))
+        time.sleep(sleep_time)
+
         self.path.append((x_coord + 0.5, y_coord + 0.5))  # Append the agent's position
-
         # Save the path image at each step
-        self.save_path_image(len(self.path))
+        # self.save_path_image(len(self.path))
 
-        # return rend
+        return rend
 
     def close(self):
         if self.viewer:
@@ -230,16 +236,48 @@ class GridWorldEnv(discrete.DiscreteEnv):
 
 if __name__ == '__main__':
     env = GridWorldEnv(7, 10)
-    for i in range(1):
+    q_table=np.random.rand(70,4)
+    
+    
+    alpha = 0.5
+    gamma = 0.1
+    epsilon = 0.1 
+    episodes=100
+    all_reward=[]
+    for ep in range(episodes):
         s = env.reset()
-        env.render(mode='human', done=False)
-
+        ep_r=0
+        env.render(mode=None, done=False)
+        print(f"episode: {ep}")
+        a_next= np.argmax(q_table[s])
         while True:
-            action = np.random.choice(env.nA)
+            
+            # time step t
+            action = a_next if (np.random.randn()>epsilon) else np.random.choice(env.nA) 
+            # a_next #np.argmax(q_table[s]) 
             res = env.step(action)
-            print('Action ', env.s, action, ' -> ', res)
-            env.render(mode='human', done=res[2])
+            
+            # print('Action ', env.s, action, ' -> ', res) # P[s][a] = [(1.0, next_s, r, done)] # what is 1 here
+            s_next= res[0]
+            
+            R=res[1]
+            ep_r+=R
+            a_next = np.argmax(q_table[s_next])
+            print(f"current state: {env.state2grid_dict[s]}/nCurrent Action: {action}\nnext_state: {env.state2grid_dict[s_next]}\nq_table[s]")
+              
+            # env.render(mode=None, done=res[2])
             if res[2]:
-                break
+                print(f"###############terminating episode{ep} ###########\nTotal Reward:: {ep_r}")
+                q_table[s][action] = q_table[s][action] + alpha*( R  )
+                break       
+            else: q_table[s][action] = q_table[s][action] + alpha*( R + gamma* (q_table[s_next][a_next] - q_table[s][action]) )
+
+                
+        all_reward.append(ep_r)
 
     env.close()
+
+    all_reward=np.asarray(all_reward)
+    x=np.linspace(0,all_reward.shape[0],all_reward.shape[0])
+    plt.plot(all_reward,x)
+    plt.show()
