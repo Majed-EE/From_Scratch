@@ -1,0 +1,14 @@
+# Whitelist: ignore everything, then track only Python sources and notebooks
+*
+!*/
+!*.py
+!*.ipynb
+!.gitignore
+!README.md
+
+# Never track these, even inside whitelisted dirs
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
